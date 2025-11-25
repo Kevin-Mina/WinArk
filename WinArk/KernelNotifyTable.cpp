@@ -73,7 +73,8 @@ LRESULT CKernelNotifyTable::OnRBtnDown(UINT uMsg, WPARAM wParam, LPARAM lParam, 
 	POINT pt;
 	::GetCursorPos(&pt);
 	int selected = m_Table.data.selected;
-	ATLASSERT(selected >= 0);
+	if (selected == -1)
+		return 0;
 
 	bool show = Tablefunction(m_hWnd, uMsg, wParam, lParam);
 	if (show) {
@@ -320,7 +321,8 @@ LRESULT CKernelNotifyTable::OnRefresh(WORD /*wNotifyCode*/, WORD /*wID*/, HWND /
 
 LRESULT CKernelNotifyTable::OnRemove(WORD /*wNotifyCode*/, WORD /*wID*/, HWND /*hWndCtl*/, BOOL& /*bHandled*/) {
 	int selected = m_Table.data.selected;
-	ATLASSERT(selected >= 0);
+	if (selected == -1)
+		return 0;
 	auto& p = m_Table.data.info[selected];
 
 	CString text;
@@ -367,7 +369,8 @@ LRESULT CKernelNotifyTable::OnRemove(WORD /*wNotifyCode*/, WORD /*wID*/, HWND /*
 
 LRESULT CKernelNotifyTable::OnRemoveByCompanyName(WORD /*wNotifyCode*/, WORD /*wID*/, HWND /*hWndCtl*/, BOOL& /*bHandled*/) {
 	int selected = m_Table.data.selected;
-	ATLASSERT(selected >= 0);
+	if (selected == -1)
+		return 0;
 	auto& pNotify = m_Table.data.info[selected];
 
 	std::wstring companyName = pNotify.Company;
@@ -461,7 +464,8 @@ std::wstring CKernelNotifyTable::GetSingleNotifyInfo(CallbackInfo& info) {
 
 LRESULT CKernelNotifyTable::OnNotifyCopy(WORD /*wNotifyCode*/, WORD /*wID*/, HWND /*hWndCtl*/, BOOL& /*bHandled*/) {
 	int selected = m_Table.data.selected;
-	ATLASSERT(selected >= 0);
+	if (selected == -1)
+		return 0;
 	auto& info = m_Table.data.info[selected];
 
 	std::wstring text = GetSingleNotifyInfo(info);

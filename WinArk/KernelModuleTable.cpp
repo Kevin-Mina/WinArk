@@ -182,7 +182,8 @@ LRESULT CKernelModuleTable::OnRefresh(WORD /*wNotifyCode*/, WORD /*wID*/, HWND /
 
 LRESULT CKernelModuleTable::OnKernelModuleCopy(WORD /*wNotifyCode*/, WORD /*wID*/, HWND /*hWndCtl*/, BOOL& /*bHandled*/) {
 	int selected = m_Table.data.selected;
-	ATLASSERT(selected >= 0);
+	if (selected == -1)
+		return 0;
 	auto& info = m_Table.data.info[selected];
 
 	CString text = GetSingleKernelModuleInfo(info).c_str();
@@ -244,7 +245,8 @@ std::wstring CKernelModuleTable::GetSingleKernelModuleInfo(std::shared_ptr<WinSy
 
 LRESULT CKernelModuleTable::OnGoToFileLocation(WORD /*wNotifyCode*/, WORD /*wID*/, HWND /*hWndCtl*/, BOOL& /*bHandled*/) {
 	int selected = m_Table.data.selected;
-	ATLASSERT(selected >= 0);
+	if (selected == -1)
+		return 0;
 	auto& kernelModule = m_Table.data.info[selected];
 	std::wstring path = Helpers::StringToWstring(kernelModule->FullPath);
 	if ((INT_PTR)::ShellExecute(nullptr, L"open", L"explorer",
@@ -257,7 +259,8 @@ LRESULT CKernelModuleTable::OnGoToFileLocation(WORD /*wNotifyCode*/, WORD /*wID*
 
 LRESULT CKernelModuleTable::OnKernelDump(WORD /*wNotifyCode*/, WORD /*wID*/, HWND /*hWndCtl*/, BOOL& /*bHandled*/) {
 	int selected = m_Table.data.selected;
-	ATLASSERT(selected >= 0);
+	if (selected == -1)
+		return 0;
 	auto& kernelModule = m_Table.data.info[selected];
 	std::wstring path = Helpers::StringToWstring(kernelModule->NtPath);
 	bool ok = DriverHelper::DumpSysModule(path.c_str(), kernelModule->ImageBase, kernelModule->ImageSize);
@@ -267,7 +270,8 @@ LRESULT CKernelModuleTable::OnKernelDump(WORD /*wNotifyCode*/, WORD /*wID*/, HWN
 
 LRESULT CKernelModuleTable::OnKernelEATHookScan(WORD /*wNotifyCode*/, WORD /*wID*/, HWND /*hWndCtl*/, BOOL& /*bHandled*/) {
 	int selected = m_Table.data.selected;
-	ATLASSERT(selected >= 0);
+	if (selected == -1)
+		return 0;
 	auto& kernelModule = m_Table.data.info[selected];
 
 	CKernelEATHookDlg dlg(kernelModule);
@@ -278,7 +282,8 @@ LRESULT CKernelModuleTable::OnKernelEATHookScan(WORD /*wNotifyCode*/, WORD /*wID
 
 LRESULT CKernelModuleTable::OnKernelInlineHookScan(WORD /*wNotifyCode*/, WORD /*wID*/, HWND /*hWndCtl*/, BOOL& /*bHandled*/) {
 	int selected = m_Table.data.selected;
-	ATLASSERT(selected >= 0);
+	if (selected == -1)
+		return 0;
 	auto& kernelModule = m_Table.data.info[selected];
 
 	CKernelInlineHookDlg dlg(kernelModule);

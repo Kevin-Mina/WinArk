@@ -78,7 +78,8 @@ LRESULT CObjectCallbackTable::OnRBtnDown(UINT uMsg, WPARAM wParam, LPARAM lParam
 	if (selected < 0) {
 		return FALSE;
 	}
-	ATLASSERT(selected >= 0);
+	if (selected == -1)
+		return 0;
 
 	bool show = Tablefunction(m_hWnd, uMsg, wParam, lParam);
 	if (show) {
@@ -270,7 +271,8 @@ LRESULT CObjectCallbackTable::OnRefresh(WORD /*wNotifyCode*/, WORD /*wID*/, HWND
 
 LRESULT CObjectCallbackTable::OnRemove(WORD /*wNotifyCode*/, WORD /*wID*/, HWND /*hWndCtl*/, BOOL& /*bHandled*/) {
 	int selected = m_Table.data.selected;
-	ATLASSERT(selected >= 0);
+	if (selected == -1)
+		return 0;
 	auto& p = m_Table.data.info[selected];
 
 	CString text;
@@ -293,7 +295,8 @@ LRESULT CObjectCallbackTable::OnRemove(WORD /*wNotifyCode*/, WORD /*wID*/, HWND 
 
 LRESULT CObjectCallbackTable::OnRemoveByCompanyName(WORD /*wNotifyCode*/, WORD /*wID*/, HWND /*hWndCtl*/, BOOL& /*bHandled*/) {
 	int selected = m_Table.data.selected;
-	ATLASSERT(selected >= 0);
+	if (selected == -1)
+		return 0;
 	auto& pCallback = m_Table.data.info[selected];
 
 	std::wstring companyName = pCallback.Company;
@@ -365,7 +368,8 @@ std::wstring CObjectCallbackTable::GetSingleInfo(ObjectCallbackInfo& info) {
 
 LRESULT CObjectCallbackTable::OnCopy(WORD /*wNotifyCode*/, WORD /*wID*/, HWND /*hWndCtl*/, BOOL& /*bHandled*/) {
 	int selected = m_Table.data.selected;
-	ATLASSERT(selected >= 0);
+	if (selected == -1)
+		return 0;
 	auto& info = m_Table.data.info[selected];
 
 	std::wstring text = GetSingleInfo(info);
@@ -394,7 +398,8 @@ LRESULT CObjectCallbackTable::OnExport(WORD /*wNotifyCode*/, WORD /*wID*/, HWND 
 
 LRESULT CObjectCallbackTable::OnDisable(WORD, WORD, HWND, BOOL&) {
 	int selected = m_Table.data.selected;
-	ATLASSERT(selected >= 0);
+	if (selected == -1)
+		return 0;
 	auto& p = m_Table.data.info[selected];
 
 	CString text;
@@ -417,7 +422,8 @@ LRESULT CObjectCallbackTable::OnDisable(WORD, WORD, HWND, BOOL&) {
 
 LRESULT CObjectCallbackTable::OnEnable(WORD, WORD, HWND, BOOL&) {
 	int selected = m_Table.data.selected;
-	ATLASSERT(selected >= 0);
+	if (selected == -1)
+		return 0;
 	auto& p = m_Table.data.info[selected];
 
 	CString text;

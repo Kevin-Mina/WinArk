@@ -560,7 +560,8 @@ LRESULT CEtwView::OnClose(UINT, WPARAM, LPARAM, BOOL& handled) {
 
 LRESULT CEtwView::OnCopy(WORD, WORD, HWND, BOOL&) {
 	auto selected = m_List.GetSelectedIndex();
-	ATLASSERT(selected >= 0);
+	if (selected == -1)
+		return 0;
 	CString text, item;
 	for (int c = 0;; c++) {
 		if (!m_List.GetItemText(selected, c, item))

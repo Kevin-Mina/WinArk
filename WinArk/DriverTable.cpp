@@ -71,7 +71,8 @@ LRESULT CDriverTable::OnRBtnDown(UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& 
 	POINT pt;
 	::GetCursorPos(&pt);
 	int selected = m_Table.data.selected;
-	ATLASSERT(selected >= 0);
+	if (selected == -1)
+		return 0;
 	auto& p = m_Table.data.info[selected];
 	auto& pdata = p.GetStatusProcess();
 	if (pdata.CurrentState != ServiceState::Running) {
@@ -272,7 +273,8 @@ bool CDriverTable::CompareItems(const WinSys::DriverInfo& s1, const WinSys::Driv
 
 LRESULT CDriverTable::OnKernelRoutine(WORD /*wNotifyCode*/, WORD /*wID*/, HWND /*hWndCtl*/, BOOL& /*bHandled*/) {
 	int selected = m_Table.data.selected;
-	ATLASSERT(selected >= 0);
+	if (selected == -1)
+		return 0;
 	auto& p = m_Table.data.info[selected];
 
 	CKernelRoutineDlg dlg;

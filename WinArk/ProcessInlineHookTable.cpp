@@ -200,7 +200,8 @@ LRESULT CProcessInlineHookTable::OnRBtnDown(UINT uMsg, WPARAM wParam, LPARAM lPa
 	bool show = Tablefunction(m_hWnd, uMsg, wParam, lParam);
 	if (show) {
 		int selected = m_Table.data.selected;
-		ATLASSERT(selected >= 0);
+		if (selected == -1)
+			return 0;
 		auto& info = m_Table.data.info[selected];
 		if (!info.CanRestore)
 			EnableMenuItem(hSubMenu, ID_INLINEHOOK_RESTORE, MF_DISABLED);
@@ -778,6 +779,7 @@ void CProcessInlineHookTable::Refresh() {
 			auto m = GetModuleByAddress(address);
 			bool isX64Module = true;
 			bool isCheckCode = true;
+			isCheckCode = false;
 			void* local_image_base = nullptr;
 			if (m != nullptr) {
 				moduleSize = m->ModuleSize;
@@ -786,38 +788,38 @@ void CProcessInlineHookTable::Refresh() {
 				PEParser parser(path.c_str());
 				isX64Module = parser.IsPe64();
 
-				uint32_t image_size = parser.GetImageSize();
-				local_image_base = ::VirtualAlloc(nullptr, image_size, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
-				if (!local_image_base)
-					isCheckCode = false;
+				//uint32_t image_size = parser.GetImageSize();
+				//local_image_base = ::VirtualAlloc(nullptr, image_size, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
+				//if (!local_image_base)
+				//	isCheckCode = false;
 
-				if (local_image_base) {
-					BYTE* data = (BYTE*)parser.GetBaseAddress();
-					LARGE_INTEGER fileSize = parser.GetFileSize();
+				//if (local_image_base) {
+				//	BYTE* data = (BYTE*)parser.GetBaseAddress();
+				//	LARGE_INTEGER fileSize = parser.GetFileSize();
 
-					uint64_t real_image_base = (uint64_t)m->ImageBase;
+				//	uint64_t real_image_base = (uint64_t)m->ImageBase;
 
-					// Copy image headers
-					memcpy(local_image_base, data, parser.GetHeadersSize());
+				//	// Copy image headers
+				//	memcpy(local_image_base, data, parser.GetHeadersSize());
 
-					// Copy image sections
+				//	// Copy image sections
 
-					for (auto i = 0; i < parser.GetSectionCount(); ++i) {
-						auto section = parser.GetSectionHeader(i);
-						if ((section[i].Characteristics & IMAGE_SCN_CNT_UNINITIALIZED_DATA) > 0)
-							continue;
-						auto local_section = reinterpret_cast<void*>(reinterpret_cast<uint64_t>(local_image_base)
-							+ section[i].VirtualAddress);
-						if (section[i].PointerToRawData + section[i].SizeOfRawData > fileSize.QuadPart) {
-							continue;
-						}
-						memcpy(local_section, reinterpret_cast<void*>(reinterpret_cast<uint64_t>(data)
-							+ section[i].PointerToRawData), section[i].SizeOfRawData);
-					}
+				//	for (auto i = 0; i < parser.GetSectionCount(); ++i) {
+				//		auto section = parser.GetSectionHeader(i);
+				//		if ((section[i].Characteristics & IMAGE_SCN_CNT_UNINITIALIZED_DATA) > 0)
+				//			continue;
+				//		auto local_section = reinterpret_cast<void*>(reinterpret_cast<uint64_t>(local_image_base)
+				//			+ section[i].VirtualAddress);
+				//		if (section[i].PointerToRawData + section[i].SizeOfRawData > fileSize.QuadPart) {
+				//			continue;
+				//		}
+				//		memcpy(local_section, reinterpret_cast<void*>(reinterpret_cast<uint64_t>(data)
+				//			+ section[i].PointerToRawData), section[i].SizeOfRawData);
+				//	}
 
-					std::vector<RelocInfo> relocs = parser.GetRelocs(local_image_base);
-					PEParser::RelocateImageByDelta(relocs, real_image_base - parser.GetImageBase());
-				}
+				//	std::vector<RelocInfo> relocs = parser.GetRelocs(local_image_base);
+				//	PEParser::RelocateImageByDelta(relocs, real_image_base - parser.GetImageBase());
+				//}
 			}
 			else {
 				moduleBase = 0;
@@ -1114,7 +1116,8 @@ void CProcessInlineHookTable::CheckX64HookType4(cs_insn* insn, size_t j, size_t 
 
 LRESULT CProcessInlineHookTable::OnHookCopy(WORD /*wNotifyCode*/, WORD /*wID*/, HWND /*hWndCtl*/, BOOL& /*bHandled*/) {
 	int selected = m_Table.data.selected;
-	ATLASSERT(selected >= 0);
+	if (selected == -1)
+		return 0;
 	auto& info = m_Table.data.info[selected];
 
 	std::wstring text = GetSingleHookInfo(info);
@@ -1213,7 +1216,8 @@ bool CProcessInlineHookTable::CheckCode(ULONG_PTR addr, SIZE_T size, ULONG_PTR i
 
 LRESULT CProcessInlineHookTable::OnRestore(WORD, WORD, HWND, BOOL&) {
 	int selected = m_Table.data.selected;
-	ATLASSERT(selected >= 0);
+	if (selected == -1)
+		return 0;
 	auto& info = m_Table.data.info[selected];
 
 	SIZE_T bytes = 0;

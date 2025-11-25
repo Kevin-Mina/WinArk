@@ -227,7 +227,8 @@ LRESULT CFiltersDlg::OnLoad(WORD, WORD wID, HWND, BOOL&) {
 
 LRESULT CFiltersDlg::OnEdit(WORD, WORD wID, HWND, BOOL&) {
 	auto selected = m_List.GetSelectedIndex();
-	ATLASSERT(selected >= 0);
+	if (selected == -1)
+		return 0;
 	CString text;
 	m_List.GetItemText(selected, 0, text);
 	m_FilterNames.SelectString(-1, text);
@@ -257,7 +258,8 @@ LRESULT CFiltersDlg::OnMoveUp(WORD, WORD wID, HWND, BOOL&) {
 
 LRESULT CFiltersDlg::OnMoveDown(WORD, WORD wID, HWND, BOOL&) {
 	auto selected = m_List.GetSelectedIndex();
-	ATLASSERT(selected < m_List.GetItemCount() - 1);
+	if (selected == -1)
+		return 0;
 	SwapItems(m_List, selected, selected + 1);
 	m_List.SelectItem(selected + 1);
 
@@ -266,7 +268,8 @@ LRESULT CFiltersDlg::OnMoveDown(WORD, WORD wID, HWND, BOOL&) {
 
 LRESULT CFiltersDlg::OnDelete(WORD, WORD wID, HWND, BOOL&) {
 	auto selected = m_List.GetSelectedIndex();
-	ATLASSERT(selected >= 0);
+	if (selected == -1)
+		return 0;
 	m_List.DeleteItem(selected);
 
 	return 0;

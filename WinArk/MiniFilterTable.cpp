@@ -330,7 +330,8 @@ LRESULT CMiniFilterTable::OnRefresh(WORD /*wNotifyCode*/, WORD /*wID*/, HWND /*h
 
 LRESULT CMiniFilterTable::OnCallback(WORD /*wNotifyCode*/, WORD /*wID*/, HWND /*hWndCtl*/, BOOL& /*bHandled*/) {
 	int selected = m_Table.data.selected;
-	ATLASSERT(selected >= 0);
+	if (selected == -1)
+		return 0;
 	auto& info = m_Table.data.info[selected];
 
 	CMiniFilterDlg dlg(info.FilterName);
@@ -341,7 +342,8 @@ LRESULT CMiniFilterTable::OnCallback(WORD /*wNotifyCode*/, WORD /*wID*/, HWND /*
 
 LRESULT CMiniFilterTable::OnRemove(WORD /*wNotifyCode*/, WORD /*wID*/, HWND /*hWndCtl*/, BOOL& /*bHandled*/) {
 	int selected = m_Table.data.selected;
-	ATLASSERT(selected >= 0);
+	if (selected == -1)
+		return 0;
 	auto& info = m_Table.data.info[selected];
 
 	DWORD len = static_cast<DWORD>(info.FilterName.length());

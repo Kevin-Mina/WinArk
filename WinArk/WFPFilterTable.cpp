@@ -267,7 +267,8 @@ CString CWFPFilterTable::FlagToString(UINT32 flags) {
 
 LRESULT CWFPFilterTable::OnDelete(WORD /*wNotifyCode*/, WORD /*wID*/, HWND /*hWndCtl*/, BOOL& /*bHandled*/) {
 	int selected = m_Table.data.selected;
-	ATLASSERT(selected >= 0);
+	if (selected == -1)
+		return 0;
 
 	auto& info = m_Table.data.info[selected];
 

@@ -168,8 +168,9 @@ int Run(LPTSTR lpstrCmdLine = nullptr, int nCmdShow = SW_SHOWDEFAULT) {
 	cmdLine.Trim(L" \"");
 	if(!cmdLine.IsEmpty()&&cmdLine.Right(11).CompareNoCase(L"regedit.exe")!=0)*/
 		
-	// CreateEx才会加载 IDR_MAINFRAME相关的资源
+	// CreateEx will load IDR_MAINFRAME
 	_hMainWnd = wndMain.CreateEx(NULL);
+	// SetWindowDisplayAffinity(_hMainWnd, WDA_MONITOR);
 	if (_hMainWnd == NULL) {
 		ATLTRACE(_T("Main dialog creation failed!\n"));
 		return 0;

@@ -279,7 +279,8 @@ LRESULT CProcessTable::OnCreate(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM /*lPara
 
 LRESULT CProcessTable::OnProcessKill(WORD /*wNotifyCode*/, WORD /*wID*/, HWND /*hWndCtl*/, BOOL& /*bHandled*/) {
 	int selected = m_Table.data.selected;
-	ATLASSERT(selected >= 0);
+	if (selected == -1)
+		return 0;
 	auto& p = m_Table.data.info[selected];
 
 	CString text;
@@ -298,7 +299,8 @@ LRESULT CProcessTable::OnProcessKill(WORD /*wNotifyCode*/, WORD /*wID*/, HWND /*
 
 LRESULT CProcessTable::OnProcessResume(WORD /*wNotifyCode*/, WORD /*wID*/, HWND /*hWndCtl*/, BOOL& /*bHandled*/) {
 	int selected = m_Table.data.selected;
-	ATLASSERT(selected >= 0);
+	if (selected == -1)
+		return 0;
 	auto& p = m_Table.data.info[selected];
 
 	CString text;
@@ -327,7 +329,8 @@ LRESULT CProcessTable::OnProcessResume(WORD /*wNotifyCode*/, WORD /*wID*/, HWND 
 
 LRESULT CProcessTable::OnProcessSuspend(WORD /*wNotifyCode*/, WORD /*wID*/, HWND /*hWndCtl*/, BOOL& /*bHandled*/) {
 	int selected = m_Table.data.selected;
-	ATLASSERT(selected >= 0);
+	if (selected == -1)
+		return 0;
 	auto& p = m_Table.data.info[selected];
 
 	CString text;
@@ -361,7 +364,8 @@ LRESULT CProcessTable::OnProcessRefresh(WORD /*wNotifyCode*/, WORD /*wID*/, HWND
 
 LRESULT CProcessTable::OnProcessModules(WORD /*wNotifyCode*/, WORD /*wID*/, HWND /*hWndCtl*/, BOOL& /*bHandled*/) {
 	int selected = m_Table.data.selected;
-	ATLASSERT(selected >= 0);
+	if (selected == -1)
+		return 0;
 	auto& p = m_Table.data.info[selected];
 
 	CModuleDlg dlg;
@@ -372,7 +376,8 @@ LRESULT CProcessTable::OnProcessModules(WORD /*wNotifyCode*/, WORD /*wID*/, HWND
 
 LRESULT CProcessTable::OnProcessProperties(WORD /*wNotifyCode*/, WORD /*wID*/, HWND /*hWndCtl*/, BOOL& /*bHandled*/) {
 	int selected = m_Table.data.selected;
-	ATLASSERT(selected >= 0);
+	if (selected == -1)
+		return 0;
 	auto& process = m_Table.data.info[selected];
 	auto& px = GetProcessInfoEx(process.get());
 	auto dlg = new CProcessPropertiesDlg(m_ProcMgr, px);
@@ -383,7 +388,8 @@ LRESULT CProcessTable::OnProcessProperties(WORD /*wNotifyCode*/, WORD /*wID*/, H
 
 LRESULT CProcessTable::OnProcessGoToFileLocation(WORD /*wNotifyCode*/, WORD /*wID*/, HWND /*hWndCtl*/, BOOL& /*bHandled*/) {
 	int selected = m_Table.data.selected;
-	ATLASSERT(selected >= 0);
+	if (selected == -1)
+		return 0;
 	auto& process = m_Table.data.info[selected];
 	auto& px = GetProcessInfoEx(process.get());
 
@@ -397,7 +403,8 @@ LRESULT CProcessTable::OnProcessGoToFileLocation(WORD /*wNotifyCode*/, WORD /*wI
 
 LRESULT CProcessTable::OnProcessThreads(WORD /*wNotifyCode*/, WORD /*wID*/, HWND /*hWndCtl*/, BOOL& /*bHandled*/) {
 	int selected = m_Table.data.selected;
-	ATLASSERT(selected >= 0);
+	if (selected == -1)
+		return 0;
 	auto& p = m_Table.data.info[selected];
 
 	CThreadDlg dlg;
@@ -408,7 +415,8 @@ LRESULT CProcessTable::OnProcessThreads(WORD /*wNotifyCode*/, WORD /*wID*/, HWND
 
 LRESULT CProcessTable::OnProcessHandles(WORD /*wNotifyCode*/, WORD /*wID*/, HWND /*hWndCtl*/, BOOL& /*bHandled*/) {
 	int selected = m_Table.data.selected;
-	ATLASSERT(selected >= 0);
+	if (selected == -1)
+		return 0;
 	auto& p = m_Table.data.info[selected];
 
 	CHandleDlg dlg;
@@ -419,7 +427,8 @@ LRESULT CProcessTable::OnProcessHandles(WORD /*wNotifyCode*/, WORD /*wID*/, HWND
 
 LRESULT CProcessTable::OnProcessMemory(WORD /*wNotifyCode*/, WORD /*wID*/, HWND /*hWndCtl*/, BOOL& /*bHandled*/) {
 	int selected = m_Table.data.selected;
-	ATLASSERT(selected >= 0);
+	if (selected == -1)
+		return 0;
 	auto& p = m_Table.data.info[selected];
 
 	CMemoryDlg dlg;
@@ -430,7 +439,8 @@ LRESULT CProcessTable::OnProcessMemory(WORD /*wNotifyCode*/, WORD /*wID*/, HWND 
 
 LRESULT CProcessTable::OnProcessInlineHookScan(WORD /*wNotifyCode*/, WORD /*wID*/, HWND /*hWndCtl*/, BOOL& /*bHandled*/) {
 	int selected = m_Table.data.selected;
-	ATLASSERT(selected >= 0);
+	if (selected == -1)
+		return 0;
 	auto& process = m_Table.data.info[selected];
 
 	auto& px = GetProcessInfoEx(process.get());
@@ -447,7 +457,8 @@ LRESULT CProcessTable::OnProcessInlineHookScan(WORD /*wNotifyCode*/, WORD /*wID*
 
 LRESULT CProcessTable::OnProcessEATHookScan(WORD /*wNotifyCode*/, WORD /*wID*/, HWND /*hWndCtl*/, BOOL& /*bHandled*/) {
 	int selected = m_Table.data.selected;
-	ATLASSERT(selected >= 0);
+	if (selected == -1)
+		return 0;
 	auto& process = m_Table.data.info[selected];
 
 	auto& px = GetProcessInfoEx(process.get());
@@ -497,7 +508,8 @@ bool CProcessTable::InitVadSymbols(VadData* pData) {
 
 LRESULT CProcessTable::OnProcessVadInfo(WORD /*wNotifyCode*/, WORD /*wID*/, HWND /*hWndCtl*/, BOOL& /*bHandled*/) {
 	int selected = m_Table.data.selected;
-	ATLASSERT(selected >= 0);
+	if (selected == -1)
+		return 0;
 	auto& process = m_Table.data.info[selected];
 
 	VadData data;
@@ -518,7 +530,8 @@ LRESULT CProcessTable::OnProcessVadInfo(WORD /*wNotifyCode*/, WORD /*wID*/, HWND
 
 LRESULT CProcessTable::OnProcessDump(WORD /*wNotifyCode*/, WORD /*wID*/, HWND /*hWndCtl*/, BOOL& /*bHandled*/) {
 	int selected = m_Table.data.selected;
-	ATLASSERT(selected >= 0);
+	if (selected == -1)
+		return 0;
 	auto& process = m_Table.data.info[selected];
 
 	auto& px = GetProcessInfoEx(process.get());

@@ -653,7 +653,8 @@ LRESULT CTaskSchedView::OnViewRefresh(WORD, WORD, HWND, BOOL&) {
 
 LRESULT CTaskSchedView::OnRunTask(WORD, WORD, HWND, BOOL&) {
 	int selected = m_List.GetSelectedIndex();
-	ATLASSERT(selected >= 0);
+	if (selected == -1)
+		return 0;
 	auto& item = m_Items[selected];
 	ATLASSERT(item.spTask);
 	CComPtr<IRunningTask> spRunning;
@@ -670,7 +671,8 @@ LRESULT CTaskSchedView::OnRunTask(WORD, WORD, HWND, BOOL&) {
 
 LRESULT CTaskSchedView::OnStopTask(WORD, WORD, HWND, BOOL&) {
 	int selected = m_List.GetSelectedIndex();
-	ATLASSERT(selected >= 0);
+	if (selected == -1)
+		return 0;
 	auto& item = m_Items[selected];
 	HRESULT hr;
 	if (item.spTask) {
@@ -697,7 +699,8 @@ LRESULT CTaskSchedView::OnStopTask(WORD, WORD, HWND, BOOL&) {
 
 LRESULT CTaskSchedView::OnDeleteTask(WORD, WORD, HWND, BOOL&) {
 	int selected = m_List.GetSelectedIndex();
-	ATLASSERT(selected >= 0);
+	if (selected == -1)
+		return 0;
 	auto& item = m_Items[selected];
 	ATLASSERT(item.spTask);
 	auto hr = m_spCurrentFolder->DeleteTask(CComBSTR(item.Name), 0);

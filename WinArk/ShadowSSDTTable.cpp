@@ -88,7 +88,8 @@ LRESULT CShadowSSDTHookTable::OnRBtnDown(UINT uMsg, WPARAM wParam, LPARAM lParam
 	POINT pt;
 	::GetCursorPos(&pt);
 	int selected = m_Table.data.selected;
-	ATLASSERT(selected >= 0);
+	if (selected == -1)
+		return 0;
 
 	bool show = Tablefunction(m_hWnd, uMsg, wParam, lParam);
 	if (show) {
@@ -248,7 +249,8 @@ LRESULT CShadowSSDTHookTable::OnRefresh(WORD /*wNotifyCode*/, WORD /*wID*/, HWND
 
 LRESULT CShadowSSDTHookTable::OnShadowSSDTCopy(WORD /*wNotifyCode*/, WORD /*wID*/, HWND /*hWndCtl*/, BOOL& /*bHandled*/) {
 	int selected = m_Table.data.selected;
-	ATLASSERT(selected >= 0);
+	if (selected == -1)
+		return 0;
 	auto& info = m_Table.data.info[selected];
 
 	CString text = GetSingleShadowSSDTInfo(info).c_str();

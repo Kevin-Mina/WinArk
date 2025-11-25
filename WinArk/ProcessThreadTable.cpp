@@ -476,7 +476,8 @@ std::wstring CProcessThreadTable::GetSingleThreadInfo(std::shared_ptr<WinSys::Th
 
 LRESULT CProcessThreadTable::OnThreadCopy(WORD /*wNotifyCode*/, WORD /*wID*/, HWND /*hWndCtl*/, BOOL& /*bHandled*/) {
 	int selected = m_Table.data.selected;
-	ATLASSERT(selected >= 0);
+	if (selected == -1)
+		return 0;
 	auto& info = m_Table.data.info[selected];
 
 	CString text = GetSingleThreadInfo(info).c_str();

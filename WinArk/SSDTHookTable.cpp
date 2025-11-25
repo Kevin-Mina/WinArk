@@ -91,7 +91,8 @@ LRESULT CSSDTHookTable::OnRBtnDown(UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL
 	POINT pt;
 	::GetCursorPos(&pt);
 	int selected = m_Table.data.selected;
-	ATLASSERT(selected >= 0);
+	if (selected == -1)
+		return 0;
 
 	bool show = Tablefunction(m_hWnd, uMsg, wParam, lParam);
 	if (show) {
@@ -256,7 +257,8 @@ LRESULT CSSDTHookTable::OnRefresh(WORD /*wNotifyCode*/, WORD /*wID*/, HWND /*hWn
 
 LRESULT CSSDTHookTable::OnSSDTCopy(WORD /*wNotifyCode*/, WORD /*wID*/, HWND /*hWndCtl*/, BOOL& /*bHandled*/) {
 	int selected = m_Table.data.selected;
-	ATLASSERT(selected >= 0);
+	if (selected == -1)
+		return 0;
 	auto& info = m_Table.data.info[selected];
 	CString text = GetSingleSSDTInfo(info).c_str();
 	ClipboardHelper::CopyText(m_hWnd, text);

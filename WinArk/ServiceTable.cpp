@@ -76,7 +76,8 @@ LRESULT CServiceTable::OnRBtnDown(UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL&
 	POINT pt;
 	::GetCursorPos(&pt);
 	int selected = m_Table.data.selected;
-	ATLASSERT(selected >= 0);
+	if (selected == -1)
+		return 0;
 	auto& svc = m_Table.data.info[selected];
 	auto& pdata = svc.GetStatusProcess();
 	auto& state = pdata.CurrentState;
@@ -443,7 +444,8 @@ bool CServiceTable::CompareItems(const WinSys::ServiceInfo& s1, const WinSys::Se
 
 LRESULT CServiceTable::OnServiceStart(WORD /*wNotifyCode*/, WORD /*wID*/, HWND /*hWndCtl*/, BOOL& /*bHandled*/) {
 	int selected = m_Table.data.selected;
-	ATLASSERT(selected >= 0);
+	if (selected == -1)
+		return 0;
 	auto& svc = m_Table.data.info[selected];
 
 	auto service = Service::Open(svc.GetName(), ServiceAccessMask::Start | ServiceAccessMask::QueryStatus);
@@ -479,7 +481,8 @@ LRESULT CServiceTable::OnServiceStart(WORD /*wNotifyCode*/, WORD /*wID*/, HWND /
 
 LRESULT CServiceTable::OnServiceStop(WORD /*wNotifyCode*/, WORD /*wID*/, HWND /*hWndCtl*/, BOOL& /*bHandled*/) {
 	int selected = m_Table.data.selected;
-	ATLASSERT(selected >= 0);
+	if (selected == -1)
+		return 0;
 	auto& svc = m_Table.data.info[selected];
 
 	ATLASSERT(svc.GetStatusProcess().CurrentState == ServiceState::Running);
@@ -512,7 +515,8 @@ LRESULT CServiceTable::OnServiceStop(WORD /*wNotifyCode*/, WORD /*wID*/, HWND /*
 
 LRESULT CServiceTable::OnServicePause(WORD /*wNotifyCode*/, WORD /*wID*/, HWND /*hWndCtl*/, BOOL& /*bHandled*/) {
 	int selected = m_Table.data.selected;
-	ATLASSERT(selected >= 0);
+	if (selected == -1)
+		return 0;
 	auto& svc = m_Table.data.info[selected];
 
 	ATLASSERT(svc.GetStatusProcess().CurrentState == ServiceState::Running);
@@ -544,7 +548,8 @@ LRESULT CServiceTable::OnServicePause(WORD /*wNotifyCode*/, WORD /*wID*/, HWND /
 
 LRESULT CServiceTable::OnServiceContinue(WORD /*wNotifyCode*/, WORD /*wID*/, HWND /*hWndCtl*/, BOOL& /*bHandled*/) {
 	int selected = m_Table.data.selected;
-	ATLASSERT(selected >= 0);
+	if (selected == -1)
+		return 0;
 	auto& svc = m_Table.data.info[selected];
 
 	ATLASSERT(svc.GetStatusProcess().CurrentState == ServiceState::Paused);
@@ -576,7 +581,8 @@ LRESULT CServiceTable::OnServiceContinue(WORD /*wNotifyCode*/, WORD /*wID*/, HWN
 
 LRESULT CServiceTable::OnServiceProperties(WORD /*wNotifyCode*/, WORD /*wID*/, HWND /*hWndCtl*/, BOOL& /*bHandled*/) {
 	int selected = m_Table.data.selected;
-	ATLASSERT(selected >= 0);
+	if (selected == -1)
+		return 0;
 	auto& svc = m_Table.data.info[selected];
 
 	AtlMessageBox(*this, L"Not implement yet!");
@@ -586,7 +592,8 @@ LRESULT CServiceTable::OnServiceProperties(WORD /*wNotifyCode*/, WORD /*wID*/, H
 
 LRESULT CServiceTable::OnServiceDelete(WORD /*wNotifyCode*/, WORD /*wID*/, HWND /*hWndCtl*/, BOOL& /*bHandled*/) {
 	int selected = m_Table.data.selected;
-	ATLASSERT(selected >= 0);
+	if (selected == -1)
+		return 0;
 	auto& svc = m_Table.data.info[selected];
 
 	CString text;
@@ -602,7 +609,8 @@ LRESULT CServiceTable::OnServiceDelete(WORD /*wNotifyCode*/, WORD /*wID*/, HWND 
 
 LRESULT CServiceTable::OnServiceStartAll(WORD /*wNotifyCode*/, WORD /*wID*/, HWND /*hWndCtl*/, BOOL& /*bHandled*/) {
 	int selected = m_Table.data.selected;
-	ATLASSERT(selected >= 0);
+	if (selected == -1)
+		return 0;
 	auto& svc = m_Table.data.info[selected];
 
 	for (auto& svc : m_Table.data.info) {
@@ -641,7 +649,8 @@ LRESULT CServiceTable::OnServiceStartAll(WORD /*wNotifyCode*/, WORD /*wID*/, HWN
 
 LRESULT CServiceTable::OnExportByPid(WORD, WORD, HWND, BOOL&) {
 	int selected = m_Table.data.selected;
-	ATLASSERT(selected >= 0);
+	if (selected == -1)
+		return 0;
 	auto& p = m_Table.data.info[selected];
 	auto& pdata = p.GetStatusProcess();
 	DWORD pid = pdata.ProcessId;
