@@ -9,7 +9,7 @@ struct ShadowSystemServiceInfo {
 	std::string HookType;
 	uintptr_t CurrentAddress;
 	std::string TargetModule;
-	bool Hooked;
+	bool Hooked = false;
 };
 
 class CShadowSSDTHookTable :

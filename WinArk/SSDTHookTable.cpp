@@ -140,6 +140,9 @@ int CSSDTHookTable::ParseTableEntry(CString& s, char& mask, int& select, SystemS
 			s = Helpers::StringToWstring(info.TargetModule).c_str();
 			break;
 	}
+	if (info.Hooked) {
+		select |= DRAW_HILITE;
+	}
 
 	return s.GetLength();
 }

@@ -138,6 +138,10 @@ int CShadowSSDTHookTable::ParseTableEntry(CString& s, char& mask, int& select, S
 			break;
 	}
 
+	if (info.Hooked) {
+		select |= DRAW_HILITE;
+	}
+
 	return s.GetLength();
 }
 

@@ -12,7 +12,7 @@ struct SystemServiceInfo {
 	std::string HookType;
 	uintptr_t CurrentAddress;
 	std::string TargetModule;
-	bool Hooked;
+	bool Hooked = false;
 };
 
 class CSSDTHookTable :
