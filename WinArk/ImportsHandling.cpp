@@ -3,6 +3,17 @@
 #include "ImportsHandling.h"
 #include "Architecture.h"
 
+namespace {
+	ImportModuleThunk* FindModuleThunkByRva(std::map<DWORD_PTR, ImportModuleThunk>& moduleMap, DWORD_PTR rva) {
+		auto it = moduleMap.upper_bound(rva);
+		if (it == moduleMap.begin()) {
+			return nullptr;
+		}
+		--it;
+		return &it->second;
+	}
+}
+
 void ImportsHandling::SetItemData(CTreeItem item, const TreeItemData* pData)
 {
 	ItemDataMap[item] = *pData;
@@ -147,40 +158,26 @@ bool ImportsHandling::AddNotFoundApiToModuleList(const ImportThunk* pApiNotFound
 	ImportModuleThunk* pModule = nullptr;
 	DWORD_PTR rva = pApiNotFound->m_RVA;
 
-	if (m_ModuleMapNew.size() > 0) {
-		auto it_module = m_ModuleMapNew.begin();
-		while (it_module != m_ModuleMapNew.end()) {
-			if (rva >= it_module->second.m_FirstThunk) {
-				it_module++;
-				if (it_module == m_ModuleMapNew.end()) {
-					it_module--;
-					//new unknown module
-					if (it_module->second.m_ModuleName[0] == L'?')
-					{
-						pModule = &(it_module->second);
-					}
-					else
-					{
-						AddUnknownModuleToModuleList(pApiNotFound->m_RVA);
-						pModule = &(m_ModuleMapNew.find(rva)->second);
-					}
-
-					break;
-				}
-				else if (rva < it_module->second.m_FirstThunk) {
-					it_module--;
-					pModule = &(it_module->second);
-					break;
-				}
-			}
-			else {
-				break;
-			}
-		}
-	}
-	else {
+	auto next = m_ModuleMapNew.upper_bound(rva);
+	if (next == m_ModuleMapNew.begin()) {
 		AddUnknownModuleToModuleList(pApiNotFound->m_RVA);
 		pModule = &(m_ModuleMapNew.find(rva)->second);
+	}
+	else {
+		auto prev = next;
+		--prev;
+		if (next == m_ModuleMapNew.end()) {
+			if (prev->second.m_ModuleName[0] == L'?') {
+				pModule = &(prev->second);
+			}
+			else {
+				AddUnknownModuleToModuleList(pApiNotFound->m_RVA);
+				pModule = &(m_ModuleMapNew.find(rva)->second);
+			}
+		}
+		else {
+			pModule = &(prev->second);
+		}
 	}
 
 	if (!pModule) {
@@ -207,33 +204,8 @@ bool ImportsHandling::AddNotFoundApiToModuleList(const ImportThunk* pApiNotFound
 bool ImportsHandling::AddFunctionToModuleList(const ImportThunk* pApiFound)
 {
 	ImportThunk import;
-	ImportModuleThunk* pModule = nullptr;
 	DWORD_PTR rva = pApiFound->m_RVA;
-	auto it_module = m_ModuleMapNew.begin();
-	if (m_ModuleMapNew.size() > 1) {
-		while (it_module != m_ModuleMapNew.end()) {
-			if (rva >= it_module->second.m_FirstThunk) {
-				it_module++;
-				if (it_module == m_ModuleMapNew.end()) {
-					it_module--;
-					pModule = &(it_module->second);
-					break;
-				}
-				else if (rva < it_module->second.m_FirstThunk) {
-					it_module--;
-					pModule = &(it_module->second);
-					break;
-				}
-			}
-			else {
-				break;
-			}
-		}
-	}
-	else {
-		it_module = m_ModuleMapNew.begin();
-		pModule = &(it_module->second);
-	}
+	ImportModuleThunk* pModule = FindModuleThunkByRva(m_ModuleMapNew, rva);
 
 	if (!pModule) {
 		return false;
@@ -334,6 +306,7 @@ void ImportsHandling::DisplayAllImports()
 	std::map<DWORD_PTR, ImportModuleThunk>::iterator it_module;
 	std::map<DWORD_PTR, ImportThunk>::iterator it_import;
 
+	TreeImports.SetRedraw(FALSE);
 	TreeImports.DeleteAllItems();
 	ItemDataMap.clear();
 	TreeImports.SetImageList(TreeIcons);
@@ -357,6 +330,8 @@ void ImportsHandling::DisplayAllImports()
 		it_module++;
 	}
 
+	TreeImports.SetRedraw(TRUE);
+	TreeImports.Invalidate();
 	UpdateCounts();
 }
 
@@ -570,7 +545,7 @@ void ImportsHandling::ScanAndFixModuleList()
 		it_module++;
 	}
 
-	m_ModuleMap = m_ModuleMapNew;
+	m_ModuleMap.swap(m_ModuleMapNew);
 	m_ModuleMapNew.clear();
 }
 

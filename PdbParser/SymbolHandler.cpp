@@ -64,15 +64,21 @@ ImagehlpSymbol::~ImagehlpSymbol() {
 
 SymbolHandler::SymbolHandler(HANDLE hProcess, PCSTR searchPath,DWORD symOptions){
 	m_hProcess = hProcess;
+	if (m_hProcess != INVALID_HANDLE_VALUE && m_hProcess != ::GetCurrentProcess()) {
+		::SymSetOptions(symOptions);
+		_initialized = ::SymInitialize(m_hProcess, searchPath, TRUE);
+	}
 }
 
 SymbolHandler::~SymbolHandler() {
+	if (_initialized)
+		::SymCleanup(m_hProcess);
 	if (m_hProcess != ::GetCurrentProcess())
 		::CloseHandle(m_hProcess);
 }
 
 ULONG64 SymbolHandler::LoadSymbolsForModule(PCSTR imageName, PCSTR moduleName, DWORD64 baseAddress,DWORD dllSize) {
-	_address = SymLoadModuleEx(m_hProcess, nullptr, imageName, nullptr, baseAddress, dllSize, nullptr, 0);
+	_address = SymLoadModuleEx(m_hProcess, nullptr, imageName, moduleName, baseAddress, dllSize, nullptr, 0);
 	return _address;
 }
 
@@ -219,10 +225,13 @@ BOOL SymbolHandler::Callback(ULONG code, ULONG64 data) {
 }
 
 std::unique_ptr<SymbolHandler> SymbolHandler::CreateForProcess(DWORD pid, PCSTR searchPath) {
-	auto hProcess = ::OpenProcess(PROCESS_QUERY_INFORMATION | SYNCHRONIZE, FALSE, pid);
+	auto hProcess = ::OpenProcess(PROCESS_QUERY_INFORMATION | PROCESS_VM_READ | SYNCHRONIZE, FALSE, pid);
 	if (!hProcess)
 		return nullptr;
-	return std::make_unique<SymbolHandler>(hProcess, searchPath);
+	auto handler = std::make_unique<SymbolHandler>(hProcess, searchPath);
+	if (!handler->_initialized)
+		return nullptr;
+	return handler;
 }
 
 ULONG SymbolHandler::GetStructSize(std::string name) {

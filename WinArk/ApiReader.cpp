@@ -3,6 +3,31 @@
 #include <PEParser.h>
 #include "Helpers.h"
 
+namespace {
+	DWORD_PTR GetPageSizeCached() {
+		static DWORD_PTR s_pageSize = [] {
+			SYSTEM_INFO si = {};
+			::GetSystemInfo(&si);
+			return static_cast<DWORD_PTR>(si.dwPageSize);
+		}();
+		return s_pageSize;
+	}
+
+	DWORD_PTR GetPageBaseCached(DWORD_PTR address) {
+		const auto pageSize = GetPageSizeCached();
+		return address & ~(pageSize - 1);
+	}
+
+	ImportModuleThunk* FindModuleThunkByRva(std::map<DWORD_PTR, ImportModuleThunk>& moduleMap, DWORD_PTR rva) {
+		auto it = moduleMap.upper_bound(rva);
+		if (it == moduleMap.begin()) {
+			return nullptr;
+		}
+		--it;
+		return &it->second;
+	}
+}
+
 void ApiReader::ReadApisFromModuleList() {
 	for (unsigned int i = 0; i < _moduleList.size(); i++) {
 		SetModulePriority(&_moduleList[i]);
@@ -319,34 +344,7 @@ bool ApiReader::AddFunctionToModuleList(ApiInfo* pApiFound, DWORD_PTR va, DWORD_
 	WORD ordinal, bool valid, bool suspect)
 {
 	ImportThunk thunk;
-	ImportModuleThunk* pModuleThunk = nullptr;
-	std::map<DWORD_PTR, ImportModuleThunk>::iterator iter;
-
-	if (_moduleThunkMap->size() > 1) {
-		iter = _moduleThunkMap->begin();
-		while (iter != _moduleThunkMap->end()) {
-			if (rva >= iter->second.m_FirstThunk) {
-				iter++;
-				if (iter == _moduleThunkMap->end()) {
-					iter--;
-					pModuleThunk = &iter->second;
-					break;
-				}
-				else if (rva < iter->second.m_FirstThunk) {
-					iter--;
-					pModuleThunk = &iter->second;
-					break;
-				}
-			}
-			else {
-				break;
-			}
-		}
-	}
-	else {
-		iter = _moduleThunkMap->begin();
-		pModuleThunk = &iter->second;
-	}
+	ImportModuleThunk* pModuleThunk = FindModuleThunkByRva(*_moduleThunkMap, rva);
 
 	if (!pModuleThunk) {
 		return false;
@@ -370,40 +368,36 @@ bool ApiReader::AddFunctionToModuleList(ApiInfo* pApiFound, DWORD_PTR va, DWORD_
 bool ApiReader::AddNotFoundApiToModuleList(DWORD_PTR iat, DWORD_PTR apiAddress)
 {
 	ImportThunk thunk;
-	ImportModuleThunk* pModuleThunk = nullptr;
-	std::map<DWORD_PTR, ImportModuleThunk>::iterator iter;
 	DWORD_PTR rva = iat - _targetImageBase;
+	ImportModuleThunk* pModuleThunk = nullptr;
+	auto next = _moduleThunkMap->upper_bound(rva);
 
-	if (_moduleThunkMap->size() > 0) {
-		iter = _moduleThunkMap->begin();
-		while (iter != _moduleThunkMap->end()) {
-			if (rva >= iter->second.m_FirstThunk) {
-				iter++;
-				if (iter == _moduleThunkMap->end()) {
-					iter--;
-					if (iter->second.m_ModuleName[0] == L'?') {
-						pModuleThunk = &iter->second;
-					}
-					else {
-						AddUnknownModuleToModuleList(rva);
-						pModuleThunk = &(_moduleThunkMap->find(rva)->second);
-					}
-					break;
-				}
-				else if (rva < iter->second.m_FirstThunk) {
-					iter--;
-					pModuleThunk = &iter->second;
-					break;
-				}
-			}
-			else {
-				break;
-			}
-		}
-	}
-	else {
+	if (next == _moduleThunkMap->begin()) {
 		AddUnknownModuleToModuleList(rva);
 		pModuleThunk = &(_moduleThunkMap->find(rva)->second);
+	}
+	else {
+		auto prev = next;
+		--prev;
+		if (next == _moduleThunkMap->end()) {
+			if (prev->second.m_ModuleName[0] == L'?') {
+				pModuleThunk = &prev->second;
+			}
+			else {
+				AddUnknownModuleToModuleList(rva);
+				pModuleThunk = &(_moduleThunkMap->find(rva)->second);
+			}
+		}
+		else {
+			pModuleThunk = &prev->second;
+		}
+	}
+
+	if (!pModuleThunk) {
+		if (_moduleThunkMap->empty()) {
+			AddUnknownModuleToModuleList(rva);
+			pModuleThunk = &(_moduleThunkMap->find(rva)->second);
+		}
 	}
 
 	if (!pModuleThunk) {
@@ -627,12 +621,10 @@ ApiInfo* ApiReader::GetApiByVirtualAddress(DWORD_PTR virtualAddress, bool* pIsSu
 void ApiReader::ReadAndParseIAT(DWORD_PTR iat, DWORD size, std::map<DWORD_PTR, ImportModuleThunk>& moduleListNew)
 {
 	_moduleThunkMap = &moduleListNew;
-	BYTE* pIAT = new BYTE[size];
-	if (ReadMemoryFromProcess(iat, size, pIAT)) {
-		ParseIAT(iat, pIAT, size);
+	std::unique_ptr<BYTE[]> pIAT(new BYTE[size]);
+	if (ReadMemoryFromProcess(iat, size, pIAT.get())) {
+		ParseIAT(iat, pIAT.get(), size);
 	}
-
-	delete[] pIAT;
 }
 
 void ApiReader::AddFoundApiToModuleList(DWORD_PTR iat, ApiInfo* pApiFound, bool isNewModule, bool isSuspect)
@@ -675,76 +667,81 @@ bool ApiReader::IsInvalidMemoryForIAT(DWORD_PTR address)
 }
 
 void ApiReader::ParseIAT(DWORD_PTR iat, BYTE* pIAT, SIZE_T size) {
-	ApiInfo* pApiFound = nullptr;
 	ModuleInfo* pModule = nullptr;
-	bool isSuspect = false;
-	int countApiFound = 0, countApiNotFound = 0;
-	DWORD_PTR* p64 = (DWORD_PTR*)pIAT;
-	DWORD* p32 = reinterpret_cast<DWORD*>(pIAT);
-	SIZE_T iatSize = 0;
-	DWORD pointerSize = 0;
 	BOOL isWow64 = FALSE;
 	::IsWow64Process(_hProcess, &isWow64);
-	if (isWow64) {
-		pointerSize = 4;
-		iatSize = size / pointerSize;
-		for (SIZE_T i = 0; i < iatSize; i++) {
-			if (!IsInvalidMemoryForIAT(p32[i])) {
-				if (p32[i] > _minApiAddress && p32[i] < _maxApiAddress) {
-					pApiFound = GetApiByVirtualAddress(p32[i], &isSuspect);
-					if (pApiFound != nullptr) {
-						countApiFound++;
-						if (pModule != pApiFound->pModule) {
-							pModule = pApiFound->pModule;
-							AddFoundApiToModuleList(iat + (DWORD_PTR)&p32[i] - (DWORD_PTR)pIAT, pApiFound, true, isSuspect);
-						}
-						else {
-							AddFoundApiToModuleList(iat + (DWORD_PTR)&p32[i] - (DWORD_PTR)pIAT, pApiFound, false, isSuspect);
-						}
-					}
-					else {
-						countApiNotFound++;
-						AddNotFoundApiToModuleList(iat + (DWORD_PTR)&p32[i] - (DWORD_PTR)pIAT, p32[i]);
-					}
-				}
-				else {
-					countApiNotFound++;
-					AddNotFoundApiToModuleList(iat + (DWORD_PTR)&p32[i] - (DWORD_PTR)pIAT, p32[i]);
-				}
-			}
-		}
-	}
-	else {
-		pointerSize = 8;
-		iatSize = size / pointerSize;
-		for (SIZE_T i = 0; i < iatSize; i++) {
-			if (!IsInvalidMemoryForIAT(p64[i])) {
-				if (p64[i] > _minApiAddress && p64[i] < _maxApiAddress) {
-					pApiFound = GetApiByVirtualAddress(p64[i], &isSuspect);
-					if (pApiFound != nullptr) {
-						countApiFound++;
-						if (pModule != pApiFound->pModule) {
-							pModule = pApiFound->pModule;
-							AddFoundApiToModuleList(iat + (DWORD_PTR)&p64[i] - (DWORD_PTR)pIAT, pApiFound, true, isSuspect);
-						}
-						else {
-							AddFoundApiToModuleList(iat + (DWORD_PTR)&p64[i] - (DWORD_PTR)pIAT, pApiFound, false, isSuspect);
-						}
-					}
-					else {
-						countApiNotFound++;
-						AddNotFoundApiToModuleList(iat + (DWORD_PTR)&p64[i] - (DWORD_PTR)pIAT, p64[i]);
-					}
-				}
-				else {
-					countApiNotFound++;
-					AddNotFoundApiToModuleList(iat + (DWORD_PTR)&p64[i] - (DWORD_PTR)pIAT, p64[i]);
-				}
-			}
-		}
-	}
+	const DWORD pointerSize = isWow64 ? sizeof(DWORD) : sizeof(DWORD_PTR);
+	const SIZE_T iatSize = size / pointerSize;
+	std::unordered_map<DWORD_PTR, bool> pageValidityCache;
+	pageValidityCache.reserve(iatSize);
+	struct ApiLookupResult {
+		ApiInfo* api{ nullptr };
+		bool suspect{ false };
+	};
+	std::unordered_map<DWORD_PTR, ApiLookupResult> apiLookupCache;
+	apiLookupCache.reserve(iatSize);
 
-	
+	auto isInvalidAddress = [&](DWORD_PTR address) {
+		if (address == 0 || address == static_cast<DWORD_PTR>(-1)) {
+			return true;
+		}
+
+		const DWORD_PTR pageBase = GetPageBaseCached(address);
+		auto cacheIt = pageValidityCache.find(pageBase);
+		if (cacheIt != pageValidityCache.end()) {
+			return cacheIt->second;
+		}
+
+		MEMORY_BASIC_INFORMATION mbi = {};
+		if (!::VirtualQueryEx(_hProcess, reinterpret_cast<LPVOID>(address), &mbi, sizeof(mbi))) {
+			pageValidityCache.emplace(pageBase, false);
+			return false;
+		}
+
+		const bool invalid = !(mbi.State == MEM_COMMIT && IsPageAccessable(mbi.Protect));
+		const DWORD_PTR regionStart = reinterpret_cast<DWORD_PTR>(mbi.BaseAddress);
+		const DWORD_PTR regionEnd = regionStart + mbi.RegionSize;
+		const DWORD_PTR pageSize = GetPageSizeCached();
+		for (DWORD_PTR current = regionStart; current < regionEnd; current += pageSize) {
+			pageValidityCache.emplace(current, invalid);
+		}
+		return invalid;
+	};
+
+	auto getApiInfo = [&](DWORD_PTR apiAddress, bool& isSuspect) -> ApiInfo* {
+		auto [it, inserted] = apiLookupCache.emplace(apiAddress, ApiLookupResult{});
+		if (inserted) {
+			it->second.api = GetApiByVirtualAddress(apiAddress, &it->second.suspect);
+		}
+		isSuspect = it->second.suspect;
+		return it->second.api;
+	};
+
+	for (SIZE_T i = 0; i < iatSize; i++) {
+		const DWORD_PTR thunkAddress = iat + i * pointerSize;
+		const DWORD_PTR apiAddress = isWow64
+			? static_cast<DWORD_PTR>(reinterpret_cast<DWORD*>(pIAT)[i])
+			: reinterpret_cast<DWORD_PTR*>(pIAT)[i];
+
+		if (isInvalidAddress(apiAddress)) {
+			continue;
+		}
+
+		bool isSuspect = false;
+		ApiInfo* pApiFound = nullptr;
+		if (apiAddress > _minApiAddress && apiAddress < _maxApiAddress) {
+			pApiFound = getApiInfo(apiAddress, isSuspect);
+		}
+
+		if (pApiFound != nullptr) {
+			const bool isNewModule = pModule != pApiFound->pModule;
+			pModule = pApiFound->pModule;
+			AddFoundApiToModuleList(thunkAddress, pApiFound, isNewModule, isSuspect);
+		}
+		else {
+			AddNotFoundApiToModuleList(thunkAddress, apiAddress);
+		}
+	}
 }
 
 void ApiReader::AddApi(const char* pName, WORD hint, WORD ordinal, 

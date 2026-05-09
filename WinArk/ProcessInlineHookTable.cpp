@@ -748,6 +748,7 @@ void CProcessInlineHookTable::Refresh() {
 	m_Items = GetItems();
 	m_ModuleTracker.EnumModules();
 	m_Modules = m_ModuleTracker.GetModules();
+	std::unordered_map<ULONG_PTR, bool> moduleArchCache;
 
 	m_Sys64Modules.clear();
 	m_Table.data.n = 0;
@@ -784,9 +785,24 @@ void CProcessInlineHookTable::Refresh() {
 			if (m != nullptr) {
 				moduleSize = m->ModuleSize;
 				moduleBase = (ULONG_PTR)m->Base;
-				std::wstring path = m->Path;
-				PEParser parser(path.c_str());
-				isX64Module = parser.IsPe64();
+				auto it = moduleArchCache.find(moduleBase);
+				if (it != moduleArchCache.end()) {
+					isX64Module = it->second;
+				}
+				else {
+					const SIZE_T headerSize = std::min<SIZE_T>(moduleSize, 0x4000);
+					if (headerSize != 0) {
+						std::vector<BYTE> moduleHeader(headerSize);
+						SIZE_T bytesRead = 0;
+						if (::ReadProcessMemory(m_hProcess, m->Base, moduleHeader.data(), headerSize, &bytesRead) && bytesRead == headerSize) {
+							PEParser parser(moduleHeader.data(), headerSize);
+							if (parser.IsValid()) {
+								isX64Module = parser.IsPe64();
+							}
+						}
+					}
+					moduleArchCache.emplace(moduleBase, isX64Module);
+				}
 
 				//uint32_t image_size = parser.GetImageSize();
 				//local_image_base = ::VirtualAlloc(nullptr, image_size, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);

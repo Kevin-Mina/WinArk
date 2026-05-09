@@ -1,6 +1,14 @@
 #include "stdafx.h"
 #include "IATSearcher.h"
 
+namespace {
+	DWORD GetTargetPointerSize(HANDLE hProcess) {
+		BOOL isWow64 = FALSE;
+		::IsWow64Process(hProcess, &isWow64);
+		return isWow64 ? sizeof(DWORD) : sizeof(DWORD_PTR);
+	}
+}
+
 bool IATSearcher::SearchImportAddressTableInProcess(DWORD_PTR startAddress, DWORD_PTR* pIAT, DWORD* pSize, bool advance) {
 	DWORD_PTR addressInIAT = 0;
 	*pIAT = 0;
@@ -24,6 +32,7 @@ bool IATSearcher::FindIATAdvanced(DWORD_PTR startAddress, DWORD_PTR* pIAT, DWORD
 	std::unique_ptr<BYTE[]> buffer;
 	DWORD_PTR baseAddress;
 	SIZE_T memorySize;
+	const DWORD pointerSize = GetTargetPointerSize(_hProcess);
 
 	FindExecutableMemoryPagesByStartAddress(startAddress, &baseAddress, &memorySize);
 
@@ -67,16 +76,6 @@ bool IATSearcher::FindIATAdvanced(DWORD_PTR startAddress, DWORD_PTR* pIAT, DWORD
 	*pIAT = start;
 	iter = iatPointers.end();
 	DWORD_PTR end = *(--iter);
-	
-	BOOL isWow64 = FALSE;
-	::IsWow64Process(_hProcess, &isWow64);
-	DWORD pointerSize = 0;
-	if (isWow64) {
-		pointerSize = 4;
-	}
-	else {
-		pointerSize = 8;
-	}
 	*pSize = (DWORD)(end - start + pointerSize);
 	
 	if (*pSize > (2000000 * pointerSize)) {
@@ -141,6 +140,8 @@ DWORD_PTR IATSearcher::FindNextFunctionAddress() {
 }
 
 DWORD_PTR IATSearcher::FindIATPointer() {
+	const bool is32BitTarget = GetTargetPointerSize(_hProcess) == sizeof(DWORD);
+
 	for (unsigned int i = 0; i < _instCount; i++) {
 		if (_insts[i].flags == FLAG_NOT_DECODABLE) {
 			continue;
@@ -149,9 +150,7 @@ DWORD_PTR IATSearcher::FindIATPointer() {
 		if (META_GET_FC(_insts[i].meta) == FC_CALL
 			|| META_GET_FC(_insts[i].meta) == FC_UNC_BRANCH) {
 			if (_insts[i].size >= 5) {
-				BOOL isWow64 = FALSE;
-				::IsWow64Process(_hProcess, &isWow64);
-				if (isWow64) {
+				if (is32BitTarget) {
 					if (_insts[i].ops[0].type == O_DISP) {
 						// jmp dword ptr || call dword ptr
 						return _insts[i].disp;
@@ -172,15 +171,7 @@ DWORD_PTR IATSearcher::FindIATPointer() {
 
 bool IATSearcher::IsIATPointerValid(DWORD_PTR iatPointer, bool checkRedirects) {
 	DWORD_PTR apiAddress = 0;
-	BOOL isWow64 = FALSE;
-	::IsWow64Process(_hProcess, &isWow64);
-	DWORD pointerSize = 0;
-	if (isWow64) {
-		pointerSize = 4;
-	}
-	else {
-		pointerSize = 8;
-	}
+	const DWORD pointerSize = GetTargetPointerSize(_hProcess);
 	if (!ReadMemoryFromProcess(iatPointer, pointerSize, &apiAddress)) {
 		return false;
 	}
@@ -212,22 +203,10 @@ bool IATSearcher::FindIATStartAndSize(DWORD_PTR address, DWORD_PTR* pIAT, DWORD*
 	if (!baseAddress)
 		return false;
 
-	BOOL isWow64 = FALSE;
-	::IsWow64Process(_hProcess, &isWow64);
-	DWORD pointerSize = 0;
-	if (isWow64) {
-		pointerSize = 4;
-	}
-	else {
-		pointerSize = 8;
-	}
-	size_t size = baseSize * pointerSize * 3;
-	buffer = std::make_unique<BYTE[]>(size);
+	buffer = std::make_unique<BYTE[]>(baseSize);
 
 	if (!buffer)
 		return false;
-
-	ZeroMemory(buffer.get(), size);
 
 	if (!ReadMemoryFromProcess(baseAddress, baseSize, buffer.get())) {
 		return false;
@@ -240,10 +219,7 @@ bool IATSearcher::FindIATStartAndSize(DWORD_PTR address, DWORD_PTR* pIAT, DWORD*
 }
 
 DWORD_PTR IATSearcher::FindIATStartAddress(DWORD_PTR baseAddress, DWORD_PTR startAddress, BYTE* pData) {
-	BOOL isWow64 = FALSE;
-	::IsWow64Process(_hProcess, &isWow64);
-	DWORD pointerSize = 0;
-	if (isWow64) {
+	if (GetTargetPointerSize(_hProcess) == sizeof(DWORD)) {
 		DWORD* p32 = nullptr;
 
 		p32 = (DWORD*)((startAddress - baseAddress) + (DWORD_PTR)pData);
@@ -298,13 +274,12 @@ DWORD_PTR IATSearcher::FindIATStartAddress(DWORD_PTR baseAddress, DWORD_PTR star
 DWORD IATSearcher::FindIATSize(DWORD_PTR baseAddress, DWORD_PTR iatAddress, BYTE* pData, DWORD dataSize) {
 	PBYTE* pIATAddress = nullptr;
 	pIATAddress = (PBYTE*)((iatAddress - baseAddress) + (DWORD_PTR)pData);
-	BOOL isWow64 = FALSE;
-	::IsWow64Process(_hProcess, &isWow64);
 	DWORD* p32 = (DWORD*)pIATAddress;
 	DWORD_PTR* p64 = (DWORD_PTR*)pIATAddress;
+	const BYTE* end = pData + dataSize;
 
-	if (isWow64) {
-		while ((DWORD_PTR)p32 < ((DWORD_PTR)pData + dataSize - 1)) {
+	if (GetTargetPointerSize(_hProcess) == sizeof(DWORD)) {
+		while (reinterpret_cast<const BYTE*>(p32 + 2) < end) {
 			if (IsInvalidMemoryForIAT(*p32)) {
 				if (IsInvalidMemoryForIAT(*(p32 + 1))) {
 					DWORD_PTR apiAddress = *(p32 + 2);
@@ -317,7 +292,7 @@ DWORD IATSearcher::FindIATSize(DWORD_PTR baseAddress, DWORD_PTR iatAddress, BYTE
 		}
 	}
 	else {
-		while ((DWORD_PTR)p64 < ((DWORD_PTR)pData + dataSize - 1)) {
+		while (reinterpret_cast<const BYTE*>(p64 + 2) < end) {
 			if (IsInvalidMemoryForIAT(*p64)) {
 				if (IsInvalidMemoryForIAT(*(p64 + 1))) {
 					DWORD_PTR apiAddress = *(p64 + 2);
@@ -334,14 +309,14 @@ DWORD IATSearcher::FindIATSize(DWORD_PTR baseAddress, DWORD_PTR iatAddress, BYTE
 }
 
 void IATSearcher::FindIATPointers(std::set<DWORD_PTR>& iatPointers) {
+	const bool is32BitTarget = GetTargetPointerSize(_hProcess) == sizeof(DWORD);
+
 	for (unsigned int i = 0; i < _instCount; i++) {
 		if (_insts[i].flags != FLAG_NOT_DECODABLE) {
 			uint16_t fc = META_GET_FC(_insts[i].meta);
 			if (fc == FC_CALL || fc == FC_UNC_BRANCH) {
 				if (_insts[i].size >= 5) {
-					BOOL isWow64 = FALSE;
-					::IsWow64Process(_hProcess, &isWow64);
-					if (isWow64) {
+					if (is32BitTarget) {
 						if (_insts[i].ops[0].type == O_DISP) {
 							iatPointers.insert((DWORD_PTR)_insts[i].disp);
 						}

@@ -9,6 +9,7 @@
 #include "PickDLLDlg.h"
 #include "TreeImportExport.h"
 #include <Helpers.h>
+#include <memory>
 
 
 CScyllaDlg::CScyllaDlg(const WinSys::ProcessManager& pm, ProcessInfoEx& px)
@@ -207,7 +208,7 @@ void CScyllaDlg::IATAutoSearchActionHandler() {
 				SetDialogIATAddressAndSize(addressIAT, sizeIAT);
 			}
 			else if (addressIAT == 0 && addressIATAdv != 0) {
-				SetDialogIATAddressAndSize(addressIATAdv, sizeIAT);
+				SetDialogIATAddressAndSize(addressIATAdv, sizeIATAdv);
 			}
 			else if (addressIAT != 0 && addressIATAdv != 0) {
 				if (addressIAT != addressIATAdv || sizeIAT != sizeIATAdv) {
@@ -284,51 +285,49 @@ void CScyllaDlg::OnDump(UINT uNotifyCode, int nID, CWindow wndCtl) {
 void CScyllaDlg::DumpHandler() {
 	WCHAR filePath[MAX_PATH] = { 0 };
 	WCHAR defaultFileName[MAX_PATH] = { 0 };
-	const WCHAR* pFileFilter;
-	const WCHAR* pDefExtension;
+	const bool isModuleDump = ProcessAccessHelper::_pSelectedModule != nullptr;
+	const WCHAR* pFileFilter = isModuleDump ? s_FilterDll : s_FilterExe;
+	const WCHAR* pDefExtension = isModuleDump ? L"dll" : L"exe";
 	DWORD_PTR modBase = 0;
 	SIZE_T modSize = 0;
 	DWORD_PTR entryPoint = 0;
-	WCHAR fileName[MAX_PATH] = { 0 };
-
-	if (ProcessAccessHelper::_pSelectedModule) {
-		pFileFilter = s_FilterDll;
-		pDefExtension = L"dll";
-	}
-	else {
-		pFileFilter = s_FilterExe;
-		pDefExtension = L"exe";
-	}
 
 	GetCurrentModulePath(_text, _countof(_text));
 	GetCurrentDefaultDumpFilename(defaultFileName, _countof(defaultFileName));
 	if (ShowFileDialog(filePath, true, defaultFileName, pFileFilter, pDefExtension, _text)) {
 		entryPoint = _oepAddress.GetValue();
 
-		if (ProcessAccessHelper::_pSelectedModule) {
+		if (isModuleDump) {
 			modBase = ProcessAccessHelper::_pSelectedModule->_modBaseAddr;
-			wcscpy_s(fileName, ProcessAccessHelper::_pSelectedModule->_fullPath);
 			modSize = ProcessAccessHelper::_pSelectedModule->_modBaseSize;
 		}
 		else {
 			modBase = ProcessAccessHelper::_targetImageBase;
-			wcscpy_s(fileName, m_px.GetExecutablePath().c_str());
 			modSize = ProcessAccessHelper::_targetSizeOfImage;
 		}
 
-		void* pImageBase = new BYTE[modSize];
+		if (!modBase || !modSize) {
+			MessageBox(L"Invalid module range.", L"Failure", MB_ICONERROR);
+			return;
+		}
 
-		ProcessAccessHelper::ReadMemoryFromProcess(modBase, modSize, pImageBase);
+		auto imageBuffer = std::make_unique<BYTE[]>(modSize);
+		if (!ProcessAccessHelper::ReadMemoryFromProcess(modBase, modSize, imageBuffer.get()) &&
+			!ProcessAccessHelper::ReadMemoryPartlyFromProcess(modBase, modSize, imageBuffer.get())) {
+			MessageBox(L"Cannot read image from process memory.", L"Failure", MB_ICONERROR);
+			return;
+		}
 
-		PEParser parser(pImageBase);
+		PEParser parser(imageBuffer.get(), modSize);
 		if (parser.IsValid()) {
 			bool success = parser.DumpProcess(modBase, entryPoint, filePath);
 			if (!success) {
 				MessageBox(L"Cannot dump image.", L"Failure", MB_ICONERROR);
 			}
 		}
-
-		delete[] pImageBase;
+		else {
+			MessageBox(L"Invalid PE image in process memory.", L"Failure", MB_ICONERROR);
+		}
 	}
 }
 
@@ -422,18 +421,7 @@ void CScyllaDlg::FixDumpHandler() {
 
 	WCHAR newFilePath[MAX_PATH] = { 0 };
 	WCHAR selectedFilePath[MAX_PATH] = { 0 };
-	const WCHAR* pFileFilter = nullptr;
-	DWORD_PTR modBase = 0;
-	DWORD_PTR entryPoint = _oepAddress.GetValue();
-
-	if (ProcessAccessHelper::_pSelectedModule) {
-		modBase = ProcessAccessHelper::_pSelectedModule->_modBaseAddr;
-		pFileFilter = s_FilterDll;
-	}
-	else {
-		modBase = ProcessAccessHelper::_targetImageBase;
-		pFileFilter = s_FilterExe;
-	}
+	const WCHAR* pFileFilter = ProcessAccessHelper::_pSelectedModule ? s_FilterDll : s_FilterExe;
 
 	GetCurrentModulePath(_text, _countof(_text));
 	if (ShowFileDialog(selectedFilePath, false, nullptr, pFileFilter, nullptr, _text)) {
@@ -464,13 +452,10 @@ void CScyllaDlg::OnPERebuild(UINT uNotifyCode, int nID, CWindow wndCtl) {
 }
 
 void CScyllaDlg::PERebuildHandler() {
-	DWORD newSize = 0;
 	WCHAR selectedFilePath[MAX_PATH] = { 0 };
 
 	GetCurrentModulePath(_text, _countof(_text));
 	if (ShowFileDialog(selectedFilePath, false, nullptr, s_FilterExeDll, nullptr, _text)) {
-		DWORD fileSize = ProcessAccessHelper::GetFileSize(selectedFilePath);
-		
 		PEParser parser(selectedFilePath, true);
 
 		if (!parser.IsValid()) {
@@ -738,7 +723,7 @@ void CScyllaDlg::LoadTreeHandler() {
 
 		}
 		else {
-			swprintf_s(_text, L"Are you sure? Replace the OEP, IAT, and IAT size with %p %p %x", 
+			swprintf_s(_text, L"Are you sure? Replace the OEP, IAT, and IAT size with " PRINTF_DWORD_PTR_FULL L" " PRINTF_DWORD_PTR_FULL L" %x", 
 				oep, iat, iatSize);
 
 			int result = MessageBox(_text, L"Confirmation", MB_YESNO | MB_ICONQUESTION);

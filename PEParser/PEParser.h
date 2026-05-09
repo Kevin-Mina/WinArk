@@ -168,7 +168,7 @@ class PEParser {
 public:
 	explicit PEParser(const wchar_t* path,bool isScylla = false);
 	~PEParser();
-	PEParser(void* base);
+	PEParser(void* base, SIZE_T mappedSize = 0);
 
 	bool IsValid() const;
 	bool IsPe64() const;
@@ -278,6 +278,7 @@ protected:
 private:
 	bool IsObjectPe64() const;
 	void CheckValidity();
+	void ReleaseSectionData();
 
 
 	//CString GetResourceName(void* data) const;
